@@ -1,5 +1,6 @@
 syntax = "proto3";
 package models;
+option go_package = "github.com/KlyuchniovV/NewsGo/models";
 
 import "google/protobuf/empty.proto";
 
