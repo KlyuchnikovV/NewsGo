@@ -1,0 +1,13 @@
+syntax = "proto3";
+package models;
+
+import "google/protobuf/empty.proto";
+
+service RssServer {
+    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
+    // rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
+    // rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
+    // rpc AddLinks(google.protobuf.Empty) returns (google.protobuf.Empty);
+    // rpc RemoveLinks(google.protobuf.Empty) returns (google.protobuf.Empty);
+    // rpc GetNews(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
