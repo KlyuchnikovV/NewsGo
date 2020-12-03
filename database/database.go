@@ -2,46 +2,53 @@ package database
 
 import (
 	"time"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-func init() {
+func InitConnection(path string) (*gorm.DB, error) {
+	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
+	if err != nil {
+		return nil, err
+	}
 
+	// Migrate the schema
+	err = db.AutoMigrate(
+		&RssUrls{},
+		&Author{},
+		&Item{},
+		&FeedItems{},
+		&Feed{},
+	)
+
+	return db, err
 }
 
-type RssUrls struct {
-	Url      string        `gorm:"PRIMARY_KEY;TYPE:text;"`
-	Duration time.Duration `gorm:"TYPE:text"`
+func GetUrls(db *gorm.DB) ([]RssUrls, error) {
+	var urls []RssUrls
+	return urls, db.Find(&urls).Error
 }
 
-// TODO: check link if appears in db
-type Feed struct {
-	ID          uint              `gorm:"PRIMARY_KEY;AUTO_INCREMENT"`
-	Title       string            `gorm:"TYPE:text"`
-	Description string            `gorm:"TYPE:text"`
-	Link        string            `gorm:"TYPE:text"`
-	FeedLink    string            `gorm:"TYPE:text"`
-	Updated     string            `gorm:"TYPE:text"`
-	Published   string            `gorm:"TYPE:text"`
-	Language    string            `gorm:"TYPE:text"`
-	AuthorID    uint              `gorm:"REFERENCES:author(id)"`
-	Author      Author            `gorm:"FOREIGNKEY:AuthorID"`
-	Categories  []FeedsCategories `gorm:"ASSOCIATION_AUTOCREATE:true;ASSOCIATION_AUTOUPDATE:true;"`
+func AddRss(db *gorm.DB, url string, duration time.Duration) error {
+	return db.Create(&RssUrls{
+		Url:      url,
+		Duration: duration,
+	}).Error
 }
 
-type Author struct {
-	ID    uint   `gorm:"PRIMARY_KEY;AUTO_INCREMENT"`
-	Name  string `gorm:"TYPE:text"`
-	Email string `gorm:"TYPE:text"`
+func ListNews(db *gorm.DB) ([]Item, error) {
+	var items []Item
+	return items, db.Find(&items).Error
 }
 
-type FeedsCategories struct {
-	ID         uint     `gorm:"PRIMARY_KEY;AUTO_INCREMENT"`
-	FeedID     uint     `gorm:"REFERENCES:feed(id)"`
-	CategoryID uint     `gorm:"REFERENCES:category(id)"`
-	Category   Category `gorm:"ASSOCIATION_AUTOCREATE:true;ASSOCIATION_AUTOUPDATE:true;FOREIGNKEY:CategoryID"`
+func GetNews(db *gorm.DB, request string) ([]Item, error) {
+	var items []Item
+	return items, db.Find(&items, "title LIKE ?", "%"+request+"%").Error
 }
 
-type Category struct {
-	ID   uint   `gorm:"PRIMARY_KEY;AUTO_INCREMENT"`
-	Name string `gorm:"PRIMARY_KEY;TYPE:text;"`
+func CreateFeed(db *gorm.DB, feed Feed) error {
+	return db.Create(&feed).Error
 }

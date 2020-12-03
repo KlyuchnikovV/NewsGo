@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -16,25 +17,23 @@ type asyncTask struct {
 	onTick func() error
 }
 
-func newAsyncTask(ctx context.Context, duration time.Duration, name string, onTick func() error) *asyncTask {
+func newAsyncTask(duration time.Duration, name string, onTick func() error) *asyncTask {
 	return &asyncTask{
-		ctx:    ctx,
 		timer:  time.NewTimer(duration),
 		name:   name,
 		onTick: onTick,
 	}
 }
 
-func (a *asyncTask) Start() {
+func (a *asyncTask) Start(ctx context.Context) error {
 	if a.cancel != nil {
 		logrus.Warnf("'%s' task was already started", a.name)
-		return
+		return fmt.Errorf("'%s' task was already started", a.name)
 	}
 	if a.onTick == nil {
-		logrus.Warnf("'%s' task onTick is nil, can't start", a.name)
-		return
+		logrus.Panicf("'%s' task onTick is nil, can't start", a.name)
 	}
-	a.ctx, a.cancel = context.WithCancel(a.ctx)
+	a.ctx, a.cancel = context.WithCancel(ctx)
 	for {
 		select {
 		case <-a.timer.C:
@@ -43,7 +42,7 @@ func (a *asyncTask) Start() {
 			}
 		case <-a.ctx.Done():
 			logrus.Tracef("'%s' task stopped", a.name)
-			return
+			return nil
 		}
 	}
 }

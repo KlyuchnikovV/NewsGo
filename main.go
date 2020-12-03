@@ -3,54 +3,58 @@ package main
 import (
 	"context"
 	"main/database"
+	"main/models"
 	"main/server"
-
+	"net"
+	"os"
 	"time"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 func init() {
-	// var serverLogFilePath = "./logs/server.log"
+	var serverLogFilePath = "./logs/server.log"
 
-	// TODO: create logs path?
-	// if file, err := os.OpenFile(serverLogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0766); err != nil {
-	// 	logrus.Errorf("can't open file '%s' (cause: %s) - logging into STDOUT", serverLogFilePath, err.Error())
-	// } else {
-	// 	logrus.SetOutput(file)
-	// 	logrus.Info("logging intited")
-	// }
+	if file, err := os.OpenFile(serverLogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0766); err != nil {
+		logrus.Errorf("can't open file '%s' (cause: %s) - logging into STDOUT", serverLogFilePath, err.Error())
+	} else {
+		logrus.SetOutput(file)
+		logrus.Info("logging intited")
+	}
 }
 
+const (
+	port = ":50051"
+)
+
 func main() {
-	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{
-		DisableForeignKeyConstraintWhenMigrating: true,
-	})
+
+	db, err := database.InitConnection("local.db")
 	if err != nil {
-		panic("failed to connect database")
+		logrus.Fatal("Failed to connect database 'local.db'")
 	}
 
-	// Migrate the schema
-	if err := db.AutoMigrate(
-		&database.RssUrls{},
-		&database.Author{},
-		&database.Category{},
-		&database.FeedsCategories{},
-		&database.Feed{}); err != nil {
-		panic(err)
+	ctx := context.Background()
+
+	s, err := server.New(ctx, db, 30*time.Second)
+	if err != nil {
+		logrus.Fatalf("Failed initialize server '%s'", err.Error())
 	}
 
-	db.Create(&database.RssUrls{
-		Url:      "http://feeds.twit.tv/twit.xml",
-		Duration: time.Second * 10,
-	})
+	defer func() {
+		if _, err := s.Stop(ctx, nil); err != nil {
+			logrus.Errorf("error while stopping server (cause '%s')", err.Error())
+		}
+	}()
 
-	s := server.New(context.Background(), db, 30*time.Second)
-	s.Start()
-	defer s.Stop()
-	// Defines 5 minute server
-	time.Sleep(5 * time.Minute)
-
-	// TODO: start rpc server
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		logrus.Fatalf("Failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	models.RegisterRssServer(grpcServer, s)
+	if err := grpcServer.Serve(lis); err != nil {
+		logrus.Fatalf("Failed to serve: %v", err)
+	}
 }

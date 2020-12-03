@@ -3,12 +3,32 @@ package models;
 option go_package = "github.com/KlyuchniovV/NewsGo/models";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
-service RssServer {
+message RssLink {
+    string url = 1;
+    google.protobuf.Timestamp duration = 2;
+}
+
+message GetRequest {
+    string request = 1;
+}
+
+message News {
+    repeated Article articles = 1;
+}
+
+message Article {
+    string url = 1;
+    string title = 2;
+    string text = 3;
+}
+
+service Rss {
     rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
-    // rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
-    // rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
-    // rpc AddLinks(google.protobuf.Empty) returns (google.protobuf.Empty);
-    // rpc RemoveLinks(google.protobuf.Empty) returns (google.protobuf.Empty);
-    // rpc GetNews(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc AddRss(RssLink) returns (google.protobuf.Empty);
+    rpc GetNews(GetRequest) returns (News);
+    rpc ListNews(google.protobuf.Empty) returns (News);
 }
