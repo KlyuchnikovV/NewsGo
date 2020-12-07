@@ -8,7 +8,7 @@ import (
 )
 
 func InitConnection(path string) (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -32,10 +32,11 @@ func GetUrls(db *gorm.DB) ([]RssUrls, error) {
 	return urls, db.Find(&urls).Error
 }
 
-func AddRss(db *gorm.DB, url string, duration time.Duration) error {
+func AddRss(db *gorm.DB, url string, duration time.Duration, rule *string) error {
 	return db.Create(&RssUrls{
-		Url:      url,
-		Duration: duration,
+		Url:         url,
+		Duration:    duration,
+		ParsingRule: rule,
 	}).Error
 }
 
@@ -51,4 +52,8 @@ func GetNews(db *gorm.DB, request string) ([]Item, error) {
 
 func CreateFeed(db *gorm.DB, feed Feed) error {
 	return db.Create(&feed).Error
+}
+
+func CreateItem(db *gorm.DB, item Item) error {
+	return db.Create(&item).Error
 }

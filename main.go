@@ -30,7 +30,8 @@ const (
 
 func main() {
 
-	db, err := database.InitConnection("local.db")
+	// db, err := database.InitConnection("local.db")
+	db, err := database.InitConnection("file::memory:")
 	if err != nil {
 		logrus.Fatal("Failed to connect database 'local.db'")
 	}

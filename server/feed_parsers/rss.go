@@ -1,4 +1,4 @@
-package server
+package feed_parsers
 
 import (
 	"context"
@@ -10,34 +10,29 @@ import (
 	"gorm.io/gorm"
 )
 
-type fetcher struct {
-	asyncTask
-	parser  *gofeed.Parser
+type RssParser struct {
 	url     string
 	timeout time.Duration
-	db      *gorm.DB
+	parser  *gofeed.Parser
 }
 
-func newFetcher(db *gorm.DB, url string, duration, timeout time.Duration) *fetcher {
-	var f = fetcher{
-		parser:  gofeed.NewParser(),
+func NewRssParser(url string, timeout time.Duration) *RssParser {
+	return &RssParser{
 		url:     url,
 		timeout: timeout,
-		db:      db,
+		parser:  gofeed.NewParser(),
 	}
-	f.asyncTask = *newAsyncTask(duration, url, f.fetchUrl)
-	return &f
 }
 
-func (f *fetcher) fetchUrl() error {
-	logrus.Tracef("Fetching '%s'...", f.url)
+func (r *RssParser) Fetch(ctx context.Context, db *gorm.DB) error {
+	logrus.Tracef("Fetching '%s'...", r.url)
 
-	ctx, cancel := context.WithTimeout(f.ctx, f.timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	parsedFeed, err := f.parser.ParseURLWithContext(f.url, ctx)
+	parsedFeed, err := r.parser.ParseURLWithContext(r.url, ctx)
 	if err != nil {
-		logrus.Errorf("can't fetch url '%s' (cause: %s)", f.url, err.Error())
+		logrus.Errorf("can't fetch url '%s' (cause: %s)", r.url, err.Error())
 		return err
 	}
 
@@ -67,8 +62,8 @@ func (f *fetcher) fetchUrl() error {
 		}
 	}
 
-	if err := database.CreateFeed(f.db, feed); err != nil {
-		logrus.Errorf("can't save feed '%s' (cause: %s)", f.url, err.Error())
+	if err := database.CreateFeed(db, feed); err != nil {
+		logrus.Errorf("can't save feed '%s' (cause: %s)", r.url, err.Error())
 		return err
 	}
 

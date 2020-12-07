@@ -6,22 +6,25 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
-
 
 type asyncTask struct {
 	ctx    context.Context
+	db     *gorm.DB
 	cancel context.CancelFunc
 	timer  *time.Timer
 	name   string
-	onTick func() error
+	// onTick func(context.Context, *gorm.DB) error
+	Fetcher
 }
 
-func newAsyncTask(duration time.Duration, name string, onTick func() error) *asyncTask {
+func newAsyncTask(duration time.Duration, name string, db *gorm.DB, fetcher Fetcher) *asyncTask {
 	return &asyncTask{
 		timer:  time.NewTimer(duration),
 		name:   name,
-		onTick: onTick,
+		db:     db,
+		Fetcher: fetcher,
 	}
 }
 
@@ -30,14 +33,14 @@ func (a *asyncTask) Start(ctx context.Context) error {
 		logrus.Warnf("'%s' task was already started", a.name)
 		return fmt.Errorf("'%s' task was already started", a.name)
 	}
-	if a.onTick == nil {
+	if a.Fetch == nil {
 		logrus.Panicf("'%s' task onTick is nil, can't start", a.name)
 	}
 	a.ctx, a.cancel = context.WithCancel(ctx)
 	for {
 		select {
 		case <-a.timer.C:
-			if err := a.onTick(); err != nil {
+			if err := a.Fetch(a.ctx, a.db); err != nil {
 				logrus.Errorf("'%s' task thrown error (cause: '%s')", a.name, err.Error())
 			}
 		case <-a.ctx.Done():

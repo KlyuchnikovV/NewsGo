@@ -15,7 +15,7 @@ import (
 type Server struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
-	fetchers []*fetcher
+	fetchers []*feedCollector
 	timeout  time.Duration
 	db       *gorm.DB
 	models.UnimplementedRssServer
@@ -30,10 +30,10 @@ func New(ctx context.Context, db *gorm.DB, timeout time.Duration) (*Server, erro
 		ctx:      ctx,
 		db:       db,
 		timeout:  timeout,
-		fetchers: make([]*fetcher, len(urls)),
+		fetchers: make([]*feedCollector, len(urls)),
 	}
 	for i, url := range urls {
-		s.fetchers[i] = newFetcher(db, url.Url, url.Duration, timeout)
+		s.fetchers[i] = newFetcher(db, url.Url, url.Duration, timeout, url.ParsingRule)
 	}
 	return &s, nil
 }
@@ -68,11 +68,21 @@ func (s *Server) Stop(_ context.Context, _ *empty.Empty) (*empty.Empty, error) {
 
 func (s *Server) AddRss(ctx context.Context, link *models.RssLink) (*empty.Empty, error) {
 	var duration = link.Duration.AsTime().Sub(time.Unix(0, 0))
-	if err := database.AddRss(s.db, link.Url, duration); err != nil {
+	if err := database.AddRss(s.db, link.Url, duration, nil); err != nil {
 		return nil, err
 	}
 
-	s.fetchers = append(s.fetchers, newFetcher(s.db, link.Url, duration, s.timeout))
+	s.fetchers = append(s.fetchers, newFetcher(s.db, link.Url, duration, s.timeout, nil))
+	go s.runFetcher(s.ctx, len(s.fetchers)-1)
+	return &empty.Empty{}, nil
+}
+
+func (s *Server) AddUrl(ctx context.Context, link *models.UrlLink) (*empty.Empty, error) {
+	var duration = link.Duration.AsTime().Sub(time.Unix(0, 0))
+	if err := database.AddRss(s.db, link.Url, duration, &link.Rule); err != nil {
+		return nil, err
+	}
+	s.fetchers = append(s.fetchers, newFetcher(s.db, link.Url, duration, s.timeout, &link.Rule))
 	go s.runFetcher(s.ctx, len(s.fetchers)-1)
 	return &empty.Empty{}, nil
 }

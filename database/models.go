@@ -5,6 +5,7 @@ import "time"
 type RssUrls struct {
 	Url      string        `gorm:"PRIMARY_KEY;TYPE:text;"`
 	Duration time.Duration `gorm:"TYPE:text"`
+	ParsingRule *string `gorm:"TYPE:text"`
 }
 
 type Feed struct {
